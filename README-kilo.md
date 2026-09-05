@@ -33,8 +33,8 @@ uv sync --locked         # exit 0
 uv run python -c 'import cocoindex; print(cocoindex.__version__)'
 #    → 999.0.0 (dev-build marker version)
 
-# 5. Test suite
-TESTCONTAINERS_RYUK_DISABLED=true uv run pytest python/ -q
+# 5. Test suite (socket override comes from ./mise.toml [env]; see Gotcha 5)
+uv run pytest python/ -q
 #    → 1045 passed, 280 skipped (optional deps / platform), 0 failed, 95s
 ```
 
@@ -54,10 +54,12 @@ TESTCONTAINERS_RYUK_DISABLED=true uv run pytest python/ -q
 4. **`uv sync` does not install cocoindex.** The root pyproject is deps-only (hence the expected
    "Skipping installation of entry points… not packaged" warning). `import cocoindex` fails until
    `uv run maturin develop` has run. Re-run it after every Rust change.
-5. **Postgres-target tests error with "container did not become running":** testcontainers' Ryuk
-   reaper container cannot start on this Docker setup; the pgvector image itself runs fine (probed
-   manually). Export `TESTCONTAINERS_RYUK_DISABLED=true` for test runs. Trade-off: no automatic
-   container cleanup — check `docker ps` after aborted runs.
+5. **Postgres-target tests error with "container did not become running":** the daemon is colima,
+   and testcontainers mounts the DOCKER_HOST socket path (`/Volumes/VRMini/colima/default/docker.sock`)
+   into its Ryuk reaper container — a path that doesn't exist inside the colima VM, so Ryuk never
+   starts. Fix (committed in `./mise.toml [env]`): `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`
+   — the socket path as the VM sees it. Verified: 16/16 postgres tests pass with the reaper alive,
+   no orphaned containers. Do NOT use `TESTCONTAINERS_RYUK_DISABLED=true` — it kills crash-cleanup.
 6. **Ordering matters:** with `UV_PYTHON_PREFERENCE=only-system`, uv cannot find python 3.11 until
    mise has put it on this directory's PATH. mise first, uv second — always.
 

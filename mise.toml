@@ -5,3 +5,6 @@ rust = "1.89"
 
 [env]
 UV_PYTHON_PREFERENCE = "only-system"
+# testcontainers must mount the docker socket as the daemon's VM sees it (colima:
+# host path from DOCKER_HOST doesn't exist inside the VM). Keeps Ryuk crash-cleanup alive.
+TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = "/var/run/docker.sock"
