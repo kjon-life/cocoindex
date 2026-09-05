@@ -36,6 +36,12 @@ uv run python -c 'import cocoindex; print(cocoindex.__version__)'
 # 5. Test suite (socket override comes from ./mise.toml [env]; see Gotcha 5)
 uv run pytest python/ -q
 #    → 1045 passed, 280 skipped (optional deps / platform), 0 failed, 95s
+
+# 6. Type check + full pre-commit hook suite
+uv run mypy                 # → Success: no issues found in 282 source files
+prek run --all-files        # → 17/18 hooks pass incl. cargo test, pytest, maturin develop.
+#    Sole failure: "cargo check (rust examples)" — lance-encoding build script needs `protoc`
+#    (brew install protobuf; per AGENTS.md). Not needed unless building the lancedb rust example.
 ```
 
 ## Gotchas hit during setup — do not repeat
@@ -62,6 +68,58 @@ uv run pytest python/ -q
    no orphaned containers. Do NOT use `TESTCONTAINERS_RYUK_DISABLED=true` — it kills crash-cleanup.
 6. **Ordering matters:** with `UV_PYTHON_PREFERENCE=only-system`, uv cannot find python 3.11 until
    mise has put it on this directory's PATH. mise first, uv second — always.
+7. **Rust pin ≠ MSRV.** Cargo.toml's `rust-version = "1.89"` is the library's minimum supported
+   rustc, not the dev toolchain. The examples' aws-sdk crates need ≥1.94.1, so `./mise.toml` pins
+   rust 1.98.1. Pinning the MSRV broke `cargo check` on the examples.
+8. **`cargo test` dyld failure ("Library not loaded: /install/lib/libpython3.11.dylib"):**
+   mise's relocatable python bakes `/install/...` as libpython's install name; pyo3 test binaries
+   inherit it. Fixed via `DYLD_FALLBACK_LIBRARY_PATH` in `./mise.toml [env]` pointing at the mise
+   python `lib/` dir.
+
+## Runtime model — verified 2026-09-05
+
+**cocoindex is a library, not a service.** No daemon, no background process, nothing to "start".
+A flow runs as an ordinary process in the consuming project's venv and exits. Two modes:
+
+- **Batch** (default): `app.update()` / `update_blocking()` — process changes, sync targets, exit.
+- **Live**: `app.update(live=True)` — stays running, watches sources (watchdog), applies changes
+  continuously; `watch()` yields progress snapshots. Shut down = stop the process / `Environment.stop()`.
+
+Lifecycle: `Environment` start opens the LMDB state store; stop closes it. The CLI (`cocoindex ls`)
+reads the same store.
+
+**Consuming projects (tessera, ops-workspace) — editable path install.** Verified with two scratch
+consumers against uv 0.8.23:
+
+```toml
+[tool.uv.sources]
+cocoindex = { path = "/Users/trust/Dev/utils/cocoindex", editable = true }
+```
+
+- `[tool.uv] package = false` in the fork does NOT block consumers — the maturin build-system
+  drives the PEP 517 build. Confirmed working.
+- Compile cost is per-MACHINE, not per-project: first consumer sync 48s (warm cargo cache from
+  the clone's `target/`), second consumer sync **0.15s** (uv cache hit).
+- All editable consumers + the clone venv load the SAME compiled artifact:
+  `python/cocoindex/_internal/core.abi3.so` in the clone. Consequences:
+  - Python edits in the fork are live in every project immediately.
+  - `uv run maturin develop` (in the clone) rebuilds Rust for every project at once.
+  - The fork is a single mutable dependency shared across projects: a bad edit breaks all
+    consumers simultaneously. Freeze via a built wheel if that ever matters.
+- CLI entry points (`cocoindex` command) install correctly in consumers (never in the clone itself).
+
+**Per-project isolation rule:** every project sets its own `COCOINDEX_DB` path (or `db_path`).
+Never share an LMDB state dir across projects. Concurrent flows in different projects are fine.
+
+**Doctor check** (run in any consumer or the clone; detects the one silent failure — stale Rust core):
+
+```bash
+uv run python -c 'import cocoindex; print(cocoindex.__version__)' \
+&& { [ -n "$(find /Users/trust/Dev/utils/cocoindex/rust -name '*.rs' \
+     -newer /Users/trust/Dev/utils/cocoindex/python/cocoindex/_internal/core.abi3.so 2>/dev/null | head -1)" ] \
+     && echo 'STALE rust core — run in the clone: uv run maturin develop' \
+     || echo 'rust core current'; }
+```
 
 ## Internal state: LMDB (nothing to install)
 
