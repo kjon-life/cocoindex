@@ -1,0 +1,7 @@
+[tools]
+python = "3.11"
+uv = "0.8.23"
+rust = "1.89"
+
+[env]
+UV_PYTHON_PREFERENCE = "only-system"
