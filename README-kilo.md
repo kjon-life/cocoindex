@@ -39,9 +39,9 @@ uv run pytest python/ -q
 
 # 6. Type check + full pre-commit hook suite
 uv run mypy                 # → Success: no issues found in 282 source files
-prek run --all-files        # → 17/18 hooks pass incl. cargo test, pytest, maturin develop.
-#    Sole failure: "cargo check (rust examples)" — lance-encoding build script needs `protoc`
-#    (brew install protobuf; per AGENTS.md). Not needed unless building the lancedb rust example.
+prek run --all-files        # → 18/18 hooks pass (cargo test/check/fmt, pytest, mypy, maturin,
+#    secrets scans, CLI-doc regen). Requires `protoc` (brew install protobuf, per AGENTS.md) —
+#    the lance-encoding build script in the lancedb rust example needs it. libprotoc 36.1 installed.
 ```
 
 ## Gotchas hit during setup — do not repeat
