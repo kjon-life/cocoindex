@@ -22,7 +22,8 @@ Ours runs on the fork at `/Users/trust/Dev/utils/cocoindex` (which carries the A
 41 tree-sitter grammars in `rust/code_ast`), not on PyPI cocoindex.
 
 Verified stack: ccc 0.2.41 · cocoindex 999.0.0 built from the fork · python 3.12.13 ·
-sentence-transformers 6.0.1 · model Snowflake/snowflake-arctic-embed-xs on `mps` (Apple GPU).
+sentence-transformers 6.0.1 · model **nomic-ai/CodeRankEmbed** (137M, 768-dim, 8192 ctx, MIT)
+loaded by absolute path from the VRMini hf store, on `mps`. Daemon always-resident.
 
 ## MACHINE — install (done on this Mac)
 
@@ -52,16 +53,33 @@ Why every piece is load-bearing (all failure modes hit empirically):
 ```yaml
 embedding:
   provider: sentence-transformers
-  model: Snowflake/snowflake-arctic-embed-xs
+  model: /Volumes/VRMini/llm/models/hf/CodeRankEmbed
   device: mps
+  query_params:
+    prompt_name: query    # REQUIRED with the path form — see below
 
 daemon:
-  idle_timeout_minutes: 180
+  idle_timeout_minutes: 0   # always-resident (operator ruling 2026-09-06)
   keep_alive_with_mcp: true
 ```
 
 Writing this file BEFORE first init also skips ccc's interactive provider prompt (there is no
 non-interactive flag for the local provider — only `--litellm-model` for cloud, which we don't use).
+
+Model notes (verified against the model card and ccc source, 2026-09-06):
+- The model lives in the VRMini hf store — `/Volumes/VRMini/llm/models/hf/CodeRankEmbed/` with a
+  `SHA256SUMS` manifest; store contract in `/Volumes/VRMini/llm/models/hf/README.md`. Nothing on
+  the main disk; download used `HF_HOME` on the volume.
+- **`query_params.prompt_name: query` is load-bearing.** ccc's automatic prefix default matches the
+  model *name* `nomic-ai/CodeRankEmbed` exactly (`embedder_defaults.py`); the path form doesn't
+  match, and without the explicit param queries embed WITHOUT the card-required prefix
+  ("Represent this query for searching relevant code: ") — silently degraded retrieval.
+- Measured on this Mac, resident at idle: **~372 MB total** (287 MB model worker + 84 MB daemon +
+  1 MB tracker) — far under upstream's "~1 GB VRAM" estimate; on Apple Silicon this is unified
+  memory, i.e. plain RAM. First full index is ~5× slower than arctic-xs (fork repo: 8m34s for
+  917 files, was 94s); incremental refreshes stay cheap (~10s no-change scan).
+- **Any model change ⇒ `ccc reset -f && ccc index` in EVERY initialized repo** (embeddings are
+  dimension-bound). Do model evaluation before initializing many repos.
 
 **3. Install** (pin python 3.12 explicitly — otherwise the tool env grabs the newest python on
 the machine, and torch wheel coverage lags new pythons):
