@@ -106,6 +106,30 @@ ccc status           # confirm root, chunk/file counts, language breakdown
 ccc doctor           # full diagnostics if anything looks off
 ```
 
+## SKILL — install /ccc per repo, without npx
+
+The upstream docs say `npx skills add cocoindex-io/cocoindex-code`; that command only copies the
+repo's `skills/ccc/` directory into the agent's skills dir. The canonical copy already lives on
+this machine, fetched at tag **v0.2.41** (exactly matching the installed binary, so skill
+instructions can't drift ahead of the CLI):
+
+    ~/.cocoindex_code/skills/ccc/   (SKILL.md + references/{management,settings}.md)
+
+Per-repo install (Claude Code project scope — do this as part of § PER-REPO):
+
+```bash
+mkdir -p <repo-root>/.claude/skills
+cp -R ~/.cocoindex_code/skills/ccc <repo-root>/.claude/skills/ccc
+```
+
+Then `/ccc` works in that repo, and the skill's description auto-triggers on "search the
+codebase" / "find code related to". The skill is generic (no repo-specific content), so the
+same copy goes into every repo — index isolation still comes from each repo's own
+`.cocoindex_code/`, not from the skill. Whether `.claude/skills/ccc/` gets committed or
+gitignored is each repo's taxonomy call. Refresh path if ccc is ever upgraded: re-fetch
+`skills/ccc` from the cocoindex-code repo at the tag matching the new version, replace the
+canonical copy, re-copy into repos.
+
 ## INVOCATION — for agents (any brand)
 
 ```bash
