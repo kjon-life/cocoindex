@@ -6,10 +6,9 @@ changes); § PER-REPO is what an agent runs inside a target repo (tessera next).
 
 **Agent quickstart (paste this to the in-repo agent, nothing more):**
 
-> Read /Users/trust/Dev/utils/cocoindex/CCC-SETUP.md and execute § SKILL and § PER-REPO for
-> this repo. § MACHINE is already done on this machine — install nothing, and ignore any
-> install instructions inside the skill's references (they say pipx; that would fetch PyPI
-> cocoindex instead of our fork).
+> Read /Users/trust/Dev/utils/cocoindex/CCC-SETUP.md and execute § PER-REPO for this repo.
+> § MACHINE and § SKILL are already done machine-wide — install nothing, never use
+> pipx/PyPI/npx for ccc.
 
 ## What this is
 
@@ -131,29 +130,37 @@ ccc status           # confirm root, chunk/file counts, language breakdown
 ccc doctor           # full diagnostics if anything looks off
 ```
 
-## SKILL — install /ccc per repo, without npx
+## SKILL — /ccc is machine-global; edit in ONE place
 
-The upstream docs say `npx skills add cocoindex-io/cocoindex-code`; that command only copies the
-repo's `skills/ccc/` directory into the agent's skills dir. The canonical copy already lives on
-this machine, fetched at tag **v0.2.41** (exactly matching the installed binary, so skill
-instructions can't drift ahead of the CLI):
+The upstream docs say `npx skills add cocoindex-io/cocoindex-code`; that command only copies
+the repo's `skills/ccc/` directory into an agent's skills dir. We don't use it. The single
+editable source of truth on this machine is:
 
     ~/.cocoindex_code/skills/ccc/   (SKILL.md + references/{management,settings}.md)
 
-Per-repo install (Claude Code project scope — do this as part of § PER-REPO):
+fetched at upstream tag **v0.2.41** (matching the installed binary) and then **locally
+modified**: the pipx/PyPI install+upgrade instructions were replaced with a hard prohibition
+pointing at § MACHINE (they would shadow or break the fork-backed install). Both modified
+files carry a "LOCALLY MODIFIED" header.
+
+Claude Code sees it everywhere already — no per-repo step:
+
+    ~/.claude/skills/ccc -> ~/.cocoindex_code/skills/ccc     # done 2026-09-07; all Claude
+                                                             # profiles symlink into ~/.claude/skills
+
+Editing the canonical dir updates every project and profile instantly. **Never `cp` the skill
+into a repo** — copies drift.
+
+Non-Claude agents (codex etc.) that read repo-local skill dirs get a symlink, only if needed:
 
 ```bash
-mkdir -p <repo-root>/.claude/skills
-cp -R ~/.cocoindex_code/skills/ccc <repo-root>/.claude/skills/ccc
+ln -s ~/.cocoindex_code/skills/ccc <repo-root>/.agents/skills/ccc   # or the agent's dir
 ```
 
-Then `/ccc` works in that repo, and the skill's description auto-triggers on "search the
-codebase" / "find code related to". The skill is generic (no repo-specific content), so the
-same copy goes into every repo — index isolation still comes from each repo's own
-`.cocoindex_code/`, not from the skill. Whether `.claude/skills/ccc/` gets committed or
-gitignored is each repo's taxonomy call. Refresh path if ccc is ever upgraded: re-fetch
-`skills/ccc` from the cocoindex-code repo at the tag matching the new version, replace the
-canonical copy, re-copy into repos.
+Version refresh procedure (only when deliberately upgrading ccc): re-fetch `skills/ccc` from
+the cocoindex-code repo at the tag matching the NEW binary, diff against the canonical copy,
+re-apply the local modifications (grep for "LOCALLY MODIFIED"), replace the canonical dir.
+The `~/.claude/skills/ccc` symlink needs no touch.
 
 ## INVOCATION — for agents (any brand)
 
