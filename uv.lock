@@ -859,6 +859,7 @@ build-test = [
     { name = "testcontainers", extra = ["neo4j"], marker = "sys_platform != 'win32'" },
 ]
 ci = [
+    { name = "aiohttp" },
     { name = "aiomoto", extra = ["s3"] },
     { name = "asyncpg" },
     { name = "asyncpg-stubs" },
@@ -867,6 +868,7 @@ ci = [
     { name = "mypy" },
     { name = "neo4j" },
     { name = "pydantic" },
+    { name = "pymysql" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-timeout" },
@@ -874,11 +876,14 @@ ci = [
     { name = "types-psutil" },
 ]
 ci-enabled-optional-deps = [
+    { name = "aiohttp" },
     { name = "asyncpg" },
     { name = "neo4j" },
     { name = "pydantic" },
+    { name = "pymysql" },
 ]
 dev = [
+    { name = "aiohttp" },
     { name = "aiomoto", extra = ["s3"] },
     { name = "asyncpg" },
     { name = "asyncpg-stubs" },
@@ -888,6 +893,7 @@ dev = [
     { name = "neo4j" },
     { name = "prek" },
     { name = "pydantic" },
+    { name = "pymysql" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-timeout" },
@@ -1001,6 +1007,7 @@ build-test = [
     { name = "testcontainers", extras = ["postgres", "neo4j"], marker = "sys_platform != 'win32'", specifier = ">=4.0.0" },
 ]
 ci = [
+    { name = "aiohttp", specifier = ">=3.9.0" },
     { name = "aiomoto", extras = ["s3"], specifier = ">=0.3.0" },
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "asyncpg-stubs" },
@@ -1009,6 +1016,7 @@ ci = [
     { name = "mypy" },
     { name = "neo4j", specifier = ">=5.18.0" },
     { name = "pydantic", specifier = ">=2.11.9" },
+    { name = "pymysql", specifier = ">=1.1.0" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-asyncio" },
     { name = "pytest-timeout" },
@@ -1016,11 +1024,14 @@ ci = [
     { name = "types-psutil" },
 ]
 ci-enabled-optional-deps = [
+    { name = "aiohttp", specifier = ">=3.9.0" },
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "neo4j", specifier = ">=5.18.0" },
     { name = "pydantic", specifier = ">=2.11.9" },
+    { name = "pymysql", specifier = ">=1.1.0" },
 ]
 dev = [
+    { name = "aiohttp", specifier = ">=3.9.0" },
     { name = "aiomoto", extras = ["s3"], specifier = ">=0.3.0" },
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "asyncpg-stubs" },
@@ -1030,6 +1041,7 @@ dev = [
     { name = "neo4j", specifier = ">=5.18.0" },
     { name = "prek" },
     { name = "pydantic", specifier = ">=2.11.9" },
+    { name = "pymysql", specifier = ">=1.1.0" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-asyncio" },
     { name = "pytest-timeout" },
