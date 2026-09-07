@@ -4,6 +4,13 @@ Status: installed, indexed, and verified on this Mac 2026-09-05. This document i
 instruction set: § MACHINE is already done here (repeat only on a new machine or after fork
 changes); § PER-REPO is what an agent runs inside a target repo (tessera next).
 
+**Agent quickstart (paste this to the in-repo agent, nothing more):**
+
+> Read /Users/trust/Dev/utils/cocoindex/CCC-SETUP.md and execute § SKILL and § PER-REPO for
+> this repo. § MACHINE is already done on this machine — install nothing, and ignore any
+> install instructions inside the skill's references (they say pipx; that would fetch PyPI
+> cocoindex instead of our fork).
+
 ## What this is
 
 `ccc` is the cocoindex-code CLI: AST-aware semantic code search over a repo, for any coding
@@ -165,6 +172,30 @@ identically across agent brands.
 - The daemon inherits the environment of whichever shell first invokes it (`ccc doctor` prints
   the full list — API keys included). If that matters, first-invoke from a clean shell.
 - Logs: `~/.cocoindex_code/daemon.log`. Index DBs per repo: `<repo>/.cocoindex_code/*.db`.
+
+## UNINSTALL — complete exit (everything is local files; nothing was ever deployed)
+
+Per repo (repeat for each initialized repo):
+
+```bash
+ccc daemon stop                      # once, before removing things it has open
+rm -rf <repo>/.cocoindex_code        # index + project settings (or: ccc reset --all -f)
+rm -rf <repo>/.claude/skills/ccc     # the skill copy
+# remove the /.cocoindex_code/ line from the repo's .gitignore
+# remove the SessionStart hook from .claude/settings.json if one was added
+```
+
+Machine level:
+
+```bash
+uv tool uninstall cocoindex-code     # removes ccc + the tool venv (incl. the fork wheel copy)
+rm -rf ~/.cocoindex_code             # global settings, fork-overrides, skill canonical copy, daemon.log
+rm -rf ~/.cache/huggingface/hub/models--Snowflake--snowflake-arctic-embed-xs   # embedding model cache
+```
+
+The fork clone at `~/Dev/utils/cocoindex` is independent (it's the library source, not part of
+ccc's install) — keep or remove it on its own merits. No repo's pyproject, lockfile, image, or
+database ever referenced any of this.
 
 ## Trap list (all hit during this install — do not repeat)
 
