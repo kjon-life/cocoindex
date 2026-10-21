@@ -8,7 +8,7 @@ Fork: `git@github.com:kjon-life/cocoindex.git` (cocoindex v1 — internal state 
 ```bash
 git clone git@github.com:kjon-life/cocoindex.git && cd cocoindex
 mise trust               # ./mise.toml is committed; nothing runs until trusted
-mise install             # python 3.11, uv 0.8.23, rust 1.89 — pinned in ./mise.toml
+mise install             # python 3.11, uv 0.13.4, rust 1.89 — pinned in ./mise.toml
 uv sync --locked         # deps only; does NOT install cocoindex itself
 uv run maturin develop   # builds the Rust core, installs cocoindex into .venv (AGENTS.md; required)
 ```
@@ -20,7 +20,7 @@ uv run maturin develop   # builds the Rust core, installs cocoindex into .venv (
 ```bash
 # 1. Toolchain resolves from ./mise.toml, not the ~/Dev cascade
 mise ls --current | grep -E 'python|uv |rust'
-#    → python 3.11.11 / uv 0.8.23 / rust 1.89.0, all sourced from ~/Dev/utils/cocoindex/mise.toml
+#    → python 3.11.11 / uv 0.13.4 / rust 1.89.0, all sourced from ~/Dev/utils/cocoindex/mise.toml
 
 # 2. venv is built on mise's interpreter, not a uv-downloaded CPython
 uv run python -c 'import sys; print(sys.base_prefix)'
@@ -74,7 +74,8 @@ prek run --all-files        # → 18/18 hooks pass (cargo test/check/fmt, pytest
 8. **`cargo test` dyld failure ("Library not loaded: /install/lib/libpython3.11.dylib"):**
    mise's relocatable python bakes `/install/...` as libpython's install name; pyo3 test binaries
    inherit it. Fixed via `DYLD_FALLBACK_LIBRARY_PATH` in `./mise.toml [env]` pointing at the mise
-   python `lib/` dir.
+   python `lib/` dir. uv ≥0.13 drops `DYLD_*` from `uv run` children, so `./mise.toml` also sets
+   `COCOINDEX_SKIP_UV=1`, which makes `dev/run_cargo_test.sh` call cargo directly.
 
 ## Runtime model — verified 2026-09-05
 
