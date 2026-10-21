@@ -1,6 +1,6 @@
 [tools]
 python = "3.11"
-uv = "0.8.23"
+uv = "0.13.4"
 # dev toolchain; Cargo.toml's rust-version=1.89 is the lib's MSRV, but the
 # examples' aws-sdk crates need >=1.94.1 to compile
 rust = "1.98.1"
@@ -13,3 +13,6 @@ TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = "/var/run/docker.sock"
 # cargo test binaries link libpython by mise-python's baked-in /install/... name;
 # let dyld fall back to the real location
 DYLD_FALLBACK_LIBRARY_PATH = "/Users/trust/.local/share/mise/installs/python/3.11/lib"
+# uv >=0.13 drops DYLD_* from `uv run` children, so dev/run_cargo_test.sh must
+# call cargo directly for the fallback above to reach the pyo3 test binaries
+COCOINDEX_SKIP_UV = "1"

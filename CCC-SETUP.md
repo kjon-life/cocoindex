@@ -6,10 +6,9 @@ changes); § PER-REPO is what an agent runs inside a target repo (tessera next).
 
 **Agent quickstart (paste this to the in-repo agent, nothing more):**
 
-> Read /Users/trust/Dev/utils/cocoindex/CCC-SETUP.md and execute § SKILL and § PER-REPO for
-> this repo. § MACHINE is already done on this machine — install nothing, and ignore any
-> install instructions inside the skill's references (they say pipx; that would fetch PyPI
-> cocoindex instead of our fork).
+> Read /Users/trust/Dev/utils/cocoindex/CCC-SETUP.md and execute § PER-REPO for this repo.
+> § MACHINE and § SKILL are already done machine-wide — install nothing, never use
+> pipx/PyPI/npx for ccc.
 
 ## What this is
 
@@ -22,7 +21,8 @@ Ours runs on the fork at `/Users/trust/Dev/utils/cocoindex` (which carries the A
 41 tree-sitter grammars in `rust/code_ast`), not on PyPI cocoindex.
 
 Verified stack: ccc 0.2.41 · cocoindex 999.0.0 built from the fork · python 3.12.13 ·
-sentence-transformers 6.0.1 · model Snowflake/snowflake-arctic-embed-xs on `mps` (Apple GPU).
+sentence-transformers 6.0.1 · model **nomic-ai/CodeRankEmbed** (137M, 768-dim, 8192 ctx, MIT)
+loaded by absolute path from the VRMini hf store, on `mps`. Daemon always-resident.
 
 ## MACHINE — install (done on this Mac)
 
@@ -52,16 +52,33 @@ Why every piece is load-bearing (all failure modes hit empirically):
 ```yaml
 embedding:
   provider: sentence-transformers
-  model: Snowflake/snowflake-arctic-embed-xs
+  model: /Volumes/VRMini/llm/models/hf/CodeRankEmbed
   device: mps
+  query_params:
+    prompt_name: query    # REQUIRED with the path form — see below
 
 daemon:
-  idle_timeout_minutes: 180
+  idle_timeout_minutes: 0   # always-resident (operator ruling 2026-09-06)
   keep_alive_with_mcp: true
 ```
 
 Writing this file BEFORE first init also skips ccc's interactive provider prompt (there is no
 non-interactive flag for the local provider — only `--litellm-model` for cloud, which we don't use).
+
+Model notes (verified against the model card and ccc source, 2026-09-06):
+- The model lives in the VRMini hf store — `/Volumes/VRMini/llm/models/hf/CodeRankEmbed/` with a
+  `SHA256SUMS` manifest; store contract in `/Volumes/VRMini/llm/models/hf/README.md`. Nothing on
+  the main disk; download used `HF_HOME` on the volume.
+- **`query_params.prompt_name: query` is load-bearing.** ccc's automatic prefix default matches the
+  model *name* `nomic-ai/CodeRankEmbed` exactly (`embedder_defaults.py`); the path form doesn't
+  match, and without the explicit param queries embed WITHOUT the card-required prefix
+  ("Represent this query for searching relevant code: ") — silently degraded retrieval.
+- Measured on this Mac, resident at idle: **~372 MB total** (287 MB model worker + 84 MB daemon +
+  1 MB tracker) — far under upstream's "~1 GB VRAM" estimate; on Apple Silicon this is unified
+  memory, i.e. plain RAM. First full index is ~5× slower than arctic-xs (fork repo: 8m34s for
+  917 files, was 94s); incremental refreshes stay cheap (~10s no-change scan).
+- **Any model change ⇒ `ccc reset -f && ccc index` in EVERY initialized repo** (embeddings are
+  dimension-bound). Do model evaluation before initializing many repos.
 
 **3. Install** (pin python 3.12 explicitly — otherwise the tool env grabs the newest python on
 the machine, and torch wheel coverage lags new pythons):
@@ -113,29 +130,37 @@ ccc status           # confirm root, chunk/file counts, language breakdown
 ccc doctor           # full diagnostics if anything looks off
 ```
 
-## SKILL — install /ccc per repo, without npx
+## SKILL — /ccc is machine-global; edit in ONE place
 
-The upstream docs say `npx skills add cocoindex-io/cocoindex-code`; that command only copies the
-repo's `skills/ccc/` directory into the agent's skills dir. The canonical copy already lives on
-this machine, fetched at tag **v0.2.41** (exactly matching the installed binary, so skill
-instructions can't drift ahead of the CLI):
+The upstream docs say `npx skills add cocoindex-io/cocoindex-code`; that command only copies
+the repo's `skills/ccc/` directory into an agent's skills dir. We don't use it. The single
+editable source of truth on this machine is:
 
     ~/.cocoindex_code/skills/ccc/   (SKILL.md + references/{management,settings}.md)
 
-Per-repo install (Claude Code project scope — do this as part of § PER-REPO):
+fetched at upstream tag **v0.2.41** (matching the installed binary) and then **locally
+modified**: the pipx/PyPI install+upgrade instructions were replaced with a hard prohibition
+pointing at § MACHINE (they would shadow or break the fork-backed install). Both modified
+files carry a "LOCALLY MODIFIED" header.
+
+Claude Code sees it everywhere already — no per-repo step:
+
+    ~/.claude/skills/ccc -> ~/.cocoindex_code/skills/ccc     # done 2026-09-07; all Claude
+                                                             # profiles symlink into ~/.claude/skills
+
+Editing the canonical dir updates every project and profile instantly. **Never `cp` the skill
+into a repo** — copies drift.
+
+Non-Claude agents (codex etc.) that read repo-local skill dirs get a symlink, only if needed:
 
 ```bash
-mkdir -p <repo-root>/.claude/skills
-cp -R ~/.cocoindex_code/skills/ccc <repo-root>/.claude/skills/ccc
+ln -s ~/.cocoindex_code/skills/ccc <repo-root>/.agents/skills/ccc   # or the agent's dir
 ```
 
-Then `/ccc` works in that repo, and the skill's description auto-triggers on "search the
-codebase" / "find code related to". The skill is generic (no repo-specific content), so the
-same copy goes into every repo — index isolation still comes from each repo's own
-`.cocoindex_code/`, not from the skill. Whether `.claude/skills/ccc/` gets committed or
-gitignored is each repo's taxonomy call. Refresh path if ccc is ever upgraded: re-fetch
-`skills/ccc` from the cocoindex-code repo at the tag matching the new version, replace the
-canonical copy, re-copy into repos.
+Version refresh procedure (only when deliberately upgrading ccc): re-fetch `skills/ccc` from
+the cocoindex-code repo at the tag matching the NEW binary, diff against the canonical copy,
+re-apply the local modifications (grep for "LOCALLY MODIFIED"), replace the canonical dir.
+The `~/.claude/skills/ccc` symlink needs no touch.
 
 ## INVOCATION — for agents (any brand)
 
